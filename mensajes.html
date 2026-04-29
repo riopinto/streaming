@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rio Pinto – Domingo Mensajes</title>
+<style>
+  @font-face { font-family:'MontserratBold';   src:url('Montserrat-Bold.otf') format('opentype'); }
+  @font-face { font-family:'MontserratMedium'; src:url('Montserrat-Medium.ttf') format('truetype'); }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { width:100vw; height:100vh; overflow:hidden; background:#000; }
+
+  #ticker-bar {
+    position:fixed; bottom:0; left:0;
+    width:100%; height:110px;
+    background:#00008c; z-index:20;
+    border-top:4px solid #f0001e;
+  }
+  #ticker-canvas { position:absolute; top:0; left:0; width:100%; height:100%; }
+  #ticker-label {
+    position:fixed; bottom:0; left:0; height:110px;
+    background:#f0001e; color:#fff;
+    font-family:'MontserratBold',sans-serif;
+    font-size:1.55rem; letter-spacing:0.08em; text-transform:uppercase;
+    padding:0 44px 28px 50px;
+    display:flex; align-items:center; white-space:nowrap;
+    clip-path:polygon(0 0,100% 0,88% 100%,0 100%);
+    min-width:210px; z-index:30; line-height:1;
+  }
+  #waiting {
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+    color:rgba(255,255,255,0.12); font-size:2rem; font-weight:300;
+    letter-spacing:0.25em; text-transform:uppercase;
+    pointer-events:none; text-align:center; z-index:5;
+  }
+  .flash-new {
+    position:fixed; top:0; left:0; right:0; height:4px;
+    background:linear-gradient(90deg,#f0001e,#ffcc00,#f0001e);
+    z-index:40; animation:flashBar 1s ease forwards; pointer-events:none;
+  }
+  @keyframes flashBar {
+    0%  { opacity:1; transform:scaleX(0); transform-origin:left; }
+    40% { opacity:1; transform:scaleX(1); }
+    100%{ opacity:0; transform:scaleX(1); }
+  }
+</style>
+</head>
+<body>
+<div id="ticker-label">💬 Mensajes</div>
+<div id="ticker-bar">
+  <canvas id="ticker-canvas"></canvas>
+</div>
+<div id="waiting">Esperando mensajes...</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onChildAdded, onChildRemoved, query, orderByChild, equalTo }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🔧 REEMPLAZÁ CON TU NUEVO FIREBASE
+const firebaseConfig = {
+  apiKey:            "AIzaSyDXf_yUP18qbsAweA3PwIGiIrK4NLVEJI0",
+  authDomain:        "riopinto-dom.firebaseapp.com",
+  databaseURL:       "https://riopinto-dom-default-rtdb.firebaseio.com",
+  projectId:         "riopinto-dom",
+  storageBucket:     "riopinto-dom.firebasestorage.app",
+  messagingSenderId: "271649446795",
+  appId:             "1:271649446795:web:b21c5a1ba17e65a7ea6d8e"
+};
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+
+const canvas  = document.getElementById('ticker-canvas');
+const ctx     = canvas.getContext('2d');
+const waiting = document.getElementById('waiting');
+
+function resizeCanvas() {
+  canvas.width  = canvas.offsetWidth  * devicePixelRatio;
+  canvas.height = canvas.offsetHeight * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+}
+resizeCanvas();
+window.addEventListener('resize', () => { resizeCanvas(); });
+
+const BAR_H   = 110;
+const SPEED   = 110;
+const LABEL_W = 265;
+const SEP_PAD = 26;
+const SEP_W   = 44;
+const SLOT_GAP = SEP_PAD + SEP_W + SEP_PAD;
+const NAME_SIZE = 1.55 * 16;
+const TEXT_SIZE = 1.45 * 16;
+const TEXT_Y = BAR_H / 2 - 14;
+
+const sepImg = new Image();
+sepImg.src = 'SEPARADORISO.png';
+
+let catalogue = [];
+let slots     = [];
+let tailX     = LABEL_W;
+let catIdx    = 0;
+
+function measureName(text) {
+  ctx.font = `700 ${NAME_SIZE}px MontserratBold, sans-serif`;
+  return ctx.measureText(text).width;
+}
+function measureBody(text) {
+  ctx.font = `500 ${TEXT_SIZE}px MontserratMedium, sans-serif`;
+  return ctx.measureText(text).width;
+}
+
+function createSlot(ci_) {
+  const ci = ci_ % catalogue.length;
+  const m  = catalogue[ci];
+  const nameText = m.nombre.toUpperCase();
+  const bodyText = m.texto.toUpperCase();
+  const nameW    = measureName(nameText);
+  const bodyW    = measureBody(bodyText);
+  const width    = nameW + 16 + bodyW + SLOT_GAP;
+  return { x:tailX, width, catKey:m.key, nameText, bodyText, nameW, bodyW, removing:m.removing||false };
+}
+
+function drawFrame() {
+  const W = canvas.offsetWidth;
+  ctx.clearRect(0, 0, W, BAR_H);
+  for (const slot of slots) {
+    let cx = slot.x;
+    ctx.font = `700 ${NAME_SIZE}px MontserratBold, sans-serif`;
+    ctx.fillStyle = '#ffffff'; ctx.textBaseline = 'middle';
+    ctx.fillText(slot.nameText, cx, TEXT_Y);
+    cx += slot.nameW + 16;
+    ctx.font = `500 ${TEXT_SIZE}px MontserratMedium, sans-serif`;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(slot.bodyText, cx, TEXT_Y);
+    cx += slot.bodyW;
+    if (sepImg.complete && sepImg.naturalWidth > 0) {
+      const aspect = sepImg.naturalWidth / sepImg.naturalHeight;
+      const ih = 44; const iw = ih * aspect;
+      ctx.drawImage(sepImg, cx + SEP_PAD, TEXT_Y - ih/2, iw, ih);
+    }
+  }
+}
+
+let lastTs = null; let running = false; let rafId = null;
+
+function tick(ts) {
+  if (lastTs === null) lastTs = ts;
+  const dt = Math.min(ts - lastTs, 50); lastTs = ts;
+  const delta = (dt / 1000) * SPEED;
+  for (const slot of slots) slot.x -= delta;
+  tailX -= delta;
+  slots = slots.filter(slot => {
+    if (slot.x + slot.width < 0) {
+      if (slot.removing) {
+        const ci = catalogue.findIndex(m => m.key === slot.catKey);
+        if (ci !== -1) catalogue.splice(ci, 1);
+        if (catIdx > 0) catIdx = catIdx % Math.max(catalogue.length, 1);
+      }
+      return false;
+    }
+    return true;
+  });
+  if (slots.length > 0) {
+    const last = slots[slots.length - 1];
+    tailX = last.x + last.width;
+  } else { tailX = LABEL_W; }
+
+  const liveCount = catalogue.filter(m => !m.removing).length;
+  if (liveCount > 0) {
+    const limit = canvas.offsetWidth * 1.2;
+    while (tailX < limit) {
+      let tries = 0;
+      while (tries < catalogue.length && catalogue[catIdx % catalogue.length]?.removing) { catIdx++; tries++; }
+      if (tries >= catalogue.length || catalogue.length === 0) break;
+      const slot = createSlot(catIdx); catIdx++;
+      slots.push(slot); tailX = slot.x + slot.width;
+    }
+  }
+  drawFrame();
+  rafId = requestAnimationFrame(tick);
+}
+
+async function start() {
+  if (running) return; running = true;
+  waiting.style.display = 'none';
+  await document.fonts.ready;
+  await new Promise(r => requestAnimationFrame(r));
+  await new Promise(r => requestAnimationFrame(r));
+  // fill initial
+  const limit = canvas.offsetWidth * 1.2;
+  while (tailX < limit && catalogue.filter(m=>!m.removing).length > 0) {
+    let tries = 0;
+    while (tries < catalogue.length && catalogue[catIdx % catalogue.length]?.removing) { catIdx++; tries++; }
+    if (tries >= catalogue.length) break;
+    const slot = createSlot(catIdx); catIdx++;
+    slots.push(slot); tailX = slot.x + slot.width;
+  }
+  lastTs = null; rafId = requestAnimationFrame(tick);
+}
+
+async function addMessage(m) {
+  catalogue.push({ ...m, removing:false });
+  if (!running) { await start(); }
+}
+
+function removeMessage(key) {
+  const entry = catalogue.find(m => m.key === key);
+  if (!entry) return;
+  entry.removing = true;
+  for (const slot of slots) { if (slot.catKey === key) slot.removing = true; }
+}
+
+function flashBar() {
+  const el = document.createElement('div');
+  el.className = 'flash-new'; document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1100);
+}
+
+let initialized = false;
+const approvedRef = query(ref(db,'mensajes'), orderByChild('aprobado'), equalTo(true));
+onChildAdded(approvedRef, snap => {
+  const d = snap.val();
+  addMessage({ key:snap.key, nombre:d.nombre, texto:d.texto });
+  if (initialized) flashBar();
+});
+setTimeout(() => { initialized = true; }, 2000);
+onChildRemoved(approvedRef, snap => { removeMessage(snap.key); });
+</script>
+</body>
+</html>
