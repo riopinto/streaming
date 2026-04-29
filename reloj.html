@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RIOPINTO - Reloj & Contador</title>
+<style>
+  @font-face {
+    font-family: 'DSDigital';
+    src: url('DS-DIGIB.TTF') format('truetype');
+    font-weight: bold;
+  }
+
+  @font-face {
+    font-family: 'MontserratBlack';
+    src: url('Montserrat-Black.ttf') format('truetype');
+    font-weight: 900;
+  }
+
+  @font-face {
+    font-family: 'MontserratBold';
+    src: url('Montserrat-Bold.ttf') format('truetype');
+    font-weight: 700;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #000;
+  }
+
+  /* TOP BAR */
+  #topbar {
+    width: 100%; height: 100px;
+    background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  #topbar img { max-height: 80px; max-width: 80%; object-fit: contain; }
+
+  /* MAIN */
+  #main {
+    display: flex;
+    width: 100%;
+    height: calc(100vh - 100px);
+  }
+
+  /* ── LEFT PANEL ── */
+  #left-panel {
+    flex: 1;
+    background: #000;
+    border-right: 3px solid #fff;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* HORA label: 50px dentro del panel = 150px desde tope de pantalla */
+  #label-hora {
+    position: absolute;
+    top: 50px;
+    left: 0; right: 0;
+    text-align: center;
+    font-family: 'MontserratBlack', sans-serif;
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    color: #f0001e;
+    letter-spacing: 0;
+  }
+
+  /* Clock: centrado verticalmente en todo el panel */
+  #clock-display {
+    position: absolute;
+    top: 50%; left: -20px; right: 20px;
+    transform: translateY(-50%);
+    text-align: center;
+    font-family: 'DSDigital', monospace;
+    font-size: clamp(3.6rem, 9vw, 10.8rem);
+    color: #f0001e;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    white-space: nowrap;
+    padding: 0 10px;
+  }
+
+  /* ── RIGHT PANEL ── */
+  #right-panel {
+    flex: 1;
+    transition: background-color 1s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* AIRE label: mismo top que HORA */
+  #label-aire {
+    position: absolute;
+    top: 50px;
+    left: 0; right: 0;
+    text-align: center;
+    font-family: 'MontserratBlack', sans-serif;
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    color: #fff;
+    letter-spacing: 0;
+    z-index: 1;
+  }
+
+  /* Countdown: centrado verticalmente + 20px más abajo respecto al reloj */
+  #countdown-display {
+    position: absolute;
+    top: 50%; left: 0; right: 0;
+    transform: translateY(calc(-50% + 10px));
+    text-align: center;
+    font-family: 'DSDigital', monospace;
+    font-size: clamp(4.05rem, 11.34vw, 12.96rem);
+    color: #fff;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    white-space: nowrap;
+    padding: 0 10px;
+    z-index: 1;
+  }
+
+  #countdown-display.negative {
+    animation: blink-neg 1s step-end infinite;
+  }
+  @keyframes blink-neg {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.45; }
+  }
+
+  /* BUTTONS */
+  #buttons {
+    position: absolute;
+    bottom: 30px;
+    left: 0; right: 0;
+    display: flex; gap: 14px; flex-wrap: wrap;
+    justify-content: center;
+    padding: 0 10px;
+    z-index: 1;
+  }
+  .btn {
+    font-family: 'MontserratBold', sans-serif;
+    font-size: clamp(0.85rem, 1.4vw, 1.1rem);
+    letter-spacing: 0.08em;
+    padding: 13px 28px;
+    border: 2px solid rgba(255,255,255,0.75);
+    background: rgba(0,0,0,0.2);
+    color: #fff;
+    cursor: pointer;
+    border-radius: 50px;
+    text-transform: uppercase;
+    transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+    min-width: 95px;
+  }
+  .btn:hover  { background: rgba(255,255,255,0.2); box-shadow: 0 0 16px rgba(255,255,255,0.4); }
+  .btn:active { transform: scale(0.96); }
+  .btn.active { background: rgba(255,255,255,0.3); box-shadow: 0 0 20px rgba(255,255,255,0.5); }
+
+  .colon {
+    display: inline-block;
+    animation: colon-blink 1s step-end infinite;
+  }
+  @keyframes colon-blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.15; }
+  }
+
+  .neg-sign { font-size: 0.7em; vertical-align: middle; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <img src="LOGORIOPINTO.png" alt="Logo Riopinto"
+       onerror="this.style.display='none';this.parentNode.innerHTML='<span style=\'font-family:MontserratBlack,sans-serif;color:#f0001e;font-size:1.8rem;letter-spacing:0.2em\'>RIOPINTO</span>'">
+</div>
+
+<div id="main">
+
+  <div id="left-panel">
+    <div id="label-hora">HORA</div>
+    <div id="clock-display">00<span class="colon">:</span>00<span class="colon">:</span>00</div>
+  </div>
+
+  <div id="right-panel">
+    <div id="label-aire">AIRE BUNKER</div>
+    <div id="countdown-display">00<span class="colon">:</span>00</div>
+    <div id="buttons">
+      <button class="btn" id="btn5"      onclick="startCountdown(5)">5 MIN</button>
+      <button class="btn" id="btn10"     onclick="startCountdown(10)">10 MIN</button>
+      <button class="btn" id="btnBunker" onclick="setMode('bunker')">BUNKER</button>
+      <button class="btn" id="btnMovil"  onclick="setMode('movil')">MÓVIL</button>
+      <button class="btn" id="btnFuera"  onclick="setMode('fuera')">FUERA DEL AIRE</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const clockDisplay     = document.getElementById('clock-display');
+  const countdownDisplay = document.getElementById('countdown-display');
+  const labelAire        = document.getElementById('label-aire');
+  const rightPanel       = document.getElementById('right-panel');
+
+  function pad2(n) { return String(Math.abs(n)).padStart(2,'0'); }
+
+  // ─── CLOCK ───────────────────────────────────────────────────────────────────
+  let _timeOffset = null;
+
+  async function syncTime() {
+    try {
+      const r = await fetch('https://worldtimeapi.org/api/timezone/America/Argentina/Buenos_Aires');
+      if (!r.ok) throw new Error();
+      const d = await r.json();
+      _timeOffset = new Date(d.datetime).getTime() - Date.now();
+    } catch(e) { _timeOffset = null; }
+  }
+
+  function getBuenosAiresTime() {
+    if (_timeOffset !== null) return new Date(Date.now() + _timeOffset);
+    const now = new Date();
+    return new Date(now.getTime() + now.getTimezoneOffset()*60000 + (-3)*3600000);
+  }
+
+  function updateClock() {
+    const t = getBuenosAiresTime();
+    clockDisplay.innerHTML =
+      pad2(t.getHours())   + '<span class="colon">:</span>' +
+      pad2(t.getMinutes()) + '<span class="colon">:</span>' +
+      pad2(t.getSeconds());
+  }
+
+  syncTime();
+  setInterval(updateClock, 1000);
+  updateClock();
+  setInterval(syncTime, 300000);
+
+  // ─── COUNTDOWN ───────────────────────────────────────────────────────────────
+  let countdownInterval = null;
+  let totalSeconds = 0;
+
+  function formatCountdown(secs) {
+    const isNeg = secs < 0;
+    const abs   = Math.abs(secs);
+    const mm    = String(Math.floor(abs/60)).padStart(2,'0');
+    const ss    = String(abs%60).padStart(2,'0');
+    const sign  = isNeg ? '<span class="neg-sign">-</span>' : '';
+    return sign + mm + '<span class="colon">:</span>' + ss;
+  }
+
+  function startCountdown(minutes) {
+    if (currentMode === 'fuera') setMode('bunker');
+    clearInterval(countdownInterval);
+    totalSeconds = minutes * 60;
+    document.getElementById('btn5').classList.toggle('active',  minutes===5);
+    document.getElementById('btn10').classList.toggle('active', minutes===10);
+    countdownDisplay.classList.remove('negative');
+    countdownDisplay.innerHTML = formatCountdown(totalSeconds);
+    countdownInterval = setInterval(() => {
+      totalSeconds--;
+      countdownDisplay.classList.toggle('negative', totalSeconds < 0);
+      countdownDisplay.innerHTML = formatCountdown(totalSeconds);
+    }, 1000);
+  }
+
+  // ─── MODE ────────────────────────────────────────────────────────────────────
+
+  // ─── KEYBOARD SHORTCUTS ──────────────────────────────────────────────────────
+  let currentMode = 'fuera';
+
+  function setMode(mode) {
+    currentMode = mode;
+    document.getElementById('btnBunker').classList.toggle('active', mode==='bunker');
+    document.getElementById('btnMovil').classList.toggle('active',  mode==='movil');
+    document.getElementById('btnFuera').classList.toggle('active',  mode==='fuera');
+    if (mode === 'bunker') {
+      rightPanel.style.backgroundColor = '#0037dc';
+      labelAire.textContent = 'AIRE BUNKER';
+    } else if (mode === 'movil') {
+      rightPanel.style.backgroundColor = '#f0001e';
+      labelAire.textContent = 'AIRE MÓVIL';
+    } else {
+      rightPanel.style.backgroundColor = '#000';
+      labelAire.textContent = 'FUERA DEL AIRE';
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+      countdownDisplay.classList.remove('negative');
+      countdownDisplay.innerHTML = '--<span class="colon">:</span>--';
+      document.getElementById('btn5').classList.remove('active');
+      document.getElementById('btn10').classList.remove('active');
+    }
+  }
+
+  // Aplicar modo por defecto al cargar
+  setMode('fuera');
+
+  document.addEventListener('keydown', (e) => {
+    // key "0" — numpad or top row
+    if (e.key === '0' || e.code === 'Digit0' || e.code === 'Numpad0') {
+      setMode('fuera');
+    }
+    // key "1" — numpad or top row
+    else if (e.key === '1' || e.code === 'Digit1' || e.code === 'Numpad1') {
+      startCountdown(5);
+    }
+    // key "2"
+    else if (e.key === '2' || e.code === 'Digit2' || e.code === 'Numpad2') {
+      startCountdown(10);
+    }
+    // Enter / NumpadEnter — toggle mode entre bunker y movil
+    else if (e.key === 'Enter') {
+      setMode(currentMode === 'bunker' ? 'movil' : 'bunker');
+    }
+  });
+</script>
+</body>
+</html>

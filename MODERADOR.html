@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Moderador – Domingo</title>
+<style>
+  @font-face { font-family:'Montserrat-Black';  src:url('Montserrat-Black.ttf') format('truetype'); }
+  @font-face { font-family:'Montserrat-Bold';   src:url('Montserrat-Bold.ttf') format('truetype'); }
+  @font-face { font-family:'Montserrat-Medium'; src:url('Montserrat-Medium.ttf') format('truetype'); }
+
+  :root {
+    --azul-top: #0037dc;
+    --rojo: #f0001e;
+    --verde: #00b86b;
+    --bg: #00008c;
+    --panel: #00006e;
+    --card: #00005a;
+    --border: #0000b0;
+    --text: #e8e8f4;
+    --sub: #8899cc;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'Montserrat-Medium',sans-serif;
+    background:var(--bg); color:var(--text);
+    height:100vh; overflow:hidden;
+    display:flex; flex-direction:column;
+  }
+
+  /* LOGIN */
+  #login-overlay {
+    position:fixed; inset:0; background:#000060;
+    display:flex; align-items:center; justify-content:center; z-index:9999;
+  }
+  .login-box {
+    background:#00005a; border:2px solid var(--azul-top);
+    border-radius:20px; padding:40px 36px;
+    display:flex; flex-direction:column; align-items:center; gap:20px;
+    width:320px; box-shadow:0 0 60px rgba(0,55,220,0.4);
+  }
+  .login-logo { height:52px; object-fit:contain; }
+  .login-title { font-family:'Montserrat-Bold',sans-serif; font-size:1.1rem; color:#fff; letter-spacing:0.1em; text-transform:uppercase; text-align:left; align-self:flex-start; line-height:1.35; }
+  .login-input {
+    width:100%; background:#000040; border:2px solid var(--border);
+    border-radius:10px; padding:12px 16px; color:#fff;
+    font-family:'Montserrat-Medium',sans-serif; font-size:1rem;
+    letter-spacing:0.08em; text-transform:uppercase; outline:none;
+    transition:border-color 0.2s;
+  }
+  .login-input:focus { border-color:var(--azul-top); }
+  .login-btn {
+    width:100%; background:var(--azul-top); color:#fff; border:none;
+    border-radius:10px; padding:14px;
+    font-family:'Montserrat-Bold',sans-serif; font-size:1rem;
+    letter-spacing:0.1em; text-transform:uppercase; cursor:pointer;
+    transition:filter 0.15s;
+  }
+  .login-btn:hover { filter:brightness(1.2); }
+  .login-error { color:var(--rojo); font-size:0.85rem; font-family:'Montserrat-Bold',sans-serif; letter-spacing:0.04em; display:none; }
+  .login-error.visible { display:block; }
+
+  /* TOPBAR */
+  .topbar {
+    background:var(--azul-top); padding:0 24px; height:80px;
+    display:flex; align-items:center; justify-content:space-between;
+    border-bottom:3px solid var(--rojo); flex-shrink:0; gap:16px;
+  }
+  .topbar img { height:44px; object-fit:contain; }
+  .topbar-center { display:flex; align-items:baseline; gap:16px; flex:1; justify-content:center; }
+  .topbar-title { font-family:'Montserrat-Black',sans-serif; font-size:1.2rem; color:#fff; letter-spacing:0.08em; text-transform:uppercase; white-space:nowrap; }
+  .topbar-subtitle { font-family:'Montserrat-Medium',sans-serif; font-size:1.1rem; color:rgba(255,255,255,0.85); letter-spacing:0.06em; text-transform:uppercase; white-space:nowrap; }
+  .topbar-right { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+  .topbar-badge { background:var(--rojo); color:#fff; font-family:'Montserrat-Bold',sans-serif; font-size:0.82rem; padding:8px 16px; border-radius:20px; min-width:110px; text-align:center; white-space:nowrap; }
+  .btn-delete-all {
+    background:transparent; border:2px solid rgba(255,255,255,0.5);
+    color:#fff; font-family:'Montserrat-Bold',sans-serif; font-size:0.78rem;
+    padding:8px 16px; border-radius:20px; cursor:pointer;
+    letter-spacing:0.04em; text-transform:uppercase;
+    transition:background 0.15s, border-color 0.15s; white-space:nowrap;
+  }
+  .btn-delete-all:hover { background:rgba(255,0,0,0.25); border-color:var(--rojo); }
+
+  /* TWO COLUMNS LAYOUT */
+  .main {
+    flex:1; overflow:hidden;
+    display:grid; grid-template-columns:1fr 1fr;
+  }
+
+  .column {
+    display:flex; flex-direction:column; overflow:hidden;
+    border-right:2px solid var(--border);
+  }
+  .column:last-child { border-right:none; }
+
+  .panel-header {
+    padding:10px 16px; background:var(--panel);
+    border-bottom:2px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between;
+    flex-shrink:0;
+  }
+  .panel-title {
+    font-family:'Montserrat-Black',sans-serif; font-size:1.8rem;
+    letter-spacing:0.06em; text-transform:uppercase;
+    display:flex; align-items:center; justify-content:center; gap:8px; color:#fff;
+    flex:1; text-align:center;
+  }
+  .count-badge {
+    font-family:'Montserrat-Bold',sans-serif; font-size:0.8rem;
+    background:var(--border); color:var(--sub);
+    padding:3px 12px; border-radius:20px;
+  }
+
+  /* ITEMS LIST */
+  .items-list {
+    flex:1; overflow-y:auto; padding:10px 14px;
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .items-list::-webkit-scrollbar { width:5px; }
+  .items-list::-webkit-scrollbar-thumb { background:var(--border); border-radius:10px; }
+
+  /* CARDS */
+  .card {
+    background:var(--card); border:1.5px solid var(--border);
+    border-radius:10px; padding:10px 12px;
+    display:flex; align-items:flex-start; gap:10px;
+    animation:slideIn 0.3s ease;
+    transition:border-color 0.3s, background 0.3s, opacity 0.4s, transform 0.4s;
+  }
+  @keyframes slideIn {
+    from { opacity:0; transform:translateY(10px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  .card.pending {
+    background:#001a6e; border-color:var(--azul-top);
+    animation:slideIn 0.3s ease, pulseBlue 1.4s ease-in-out infinite;
+  }
+  @keyframes pulseBlue {
+    0%,100% { background:#001a6e; border-color:#0037dc; }
+    50%     { background:#0037dc; border-color:#4d88ff; }
+  }
+  .card.approved { background:#001050; border-color:#4d88ff; animation:none; }
+  .card.rejected-flash { background:#3a0000; border-color:var(--rojo); animation:none; opacity:0.5; }
+  .card.removing { opacity:0; transform:scale(0.92); pointer-events:none; }
+
+  /* Card actions */
+  .card-actions { display:flex; flex-direction:column; gap:5px; flex-shrink:0; }
+  .btn-action {
+    width:34px; height:34px; border-radius:8px; border:none;
+    font-size:1.1rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition:filter 0.15s, transform 0.1s;
+  }
+  .btn-action:active { transform:scale(0.9); }
+  .btn-approve-sm { background:var(--verde); color:#fff; }
+  .btn-approve-sm:hover { filter:brightness(1.2); }
+  .btn-reject-sm { background:var(--rojo); color:#fff; }
+  .btn-reject-sm:hover { filter:brightness(1.2); }
+  .btn-trash { background:#222; color:#aaa; }
+  .btn-trash:hover { background:#333; color:#fff; }
+  .btn-trash-only { width:28px; height:28px; border-radius:6px; border:none; background:#222; color:#aaa; font-size:0.9rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.15s; }
+  .btn-trash-only:hover { background:#333; color:#fff; }
+
+  /* Card body (msg) */
+  .card-body { flex:1; min-width:0; display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; }
+  .card-author { font-family:'Montserrat-Bold',sans-serif; font-size:0.88rem; color:#fff; }
+  .card-sep { color:var(--sub); font-size:0.88rem; }
+  .card-text { font-size:0.88rem; color:var(--text); flex:1; min-width:100px; }
+  .card-time { font-size:0.72rem; color:var(--sub); flex-basis:100%; }
+
+  /* Card foto */
+  .card-foto-body { flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
+  .card-foto-img { width:250px; height:250px; flex-shrink:0; object-fit:cover; border-radius:8px; cursor:pointer; }
+  .card.foto-card { align-items:flex-start; }
+  .card-foto-info { display:flex; flex-direction:column; gap:4px; }
+  .card-foto-autor { font-family:'Montserrat-Bold',sans-serif; font-size:0.85rem; color:#fff; }
+  .card-foto-time { font-size:0.72rem; color:var(--sub); }
+
+  /* EMPTY */
+  .empty-state { text-align:center; padding:40px 20px; color:var(--sub); font-size:0.9rem; line-height:1.6; }
+  .empty-icon { font-size:2.5rem; margin-bottom:12px; }
+
+  /* TOAST */
+  #toast {
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:#1a1a1a; color:#fff; padding:12px 24px; border-radius:30px;
+    font-family:'Montserrat-Bold',sans-serif; font-size:0.88rem;
+    opacity:0; transition:opacity 0.25s, transform 0.25s; z-index:999; white-space:nowrap;
+    pointer-events:none;
+  }
+  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  #toast.green { background:#006633; }
+  #toast.red   { background:#8b0000; }
+
+  /* LIGHTBOX */
+  #lightbox {
+    position:fixed; inset:0; background:rgba(0,0,0,0.92);
+    display:none; align-items:center; justify-content:center; z-index:9000;
+  }
+  #lightbox.open { display:flex; }
+  #lightbox img { max-width:90vw; max-height:90vh; border-radius:12px; }
+  #lightbox-close {
+    position:fixed; top:20px; right:24px; background:none; border:none;
+    color:#fff; font-size:2rem; cursor:pointer;
+  }
+
+  * { scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-overlay">
+  <div class="login-box">
+    <img src="RIOPINTOLOGO.png" alt="Rio Pinto" class="login-logo">
+    <div class="login-title">ACCESO<br>MODERADOR</div>
+    <input type="text"     class="login-input" id="login-user" placeholder="USUARIO" autocomplete="off" spellcheck="false">
+    <input type="password" class="login-input" id="login-pass" placeholder="CONTRASEÑA" autocomplete="off">
+    <div class="login-error" id="login-error">Usuario o contraseña incorrectos</div>
+    <button class="login-btn" id="login-btn">INGRESAR</button>
+  </div>
+</div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <img src="RIOPINTOLOGO.png" alt="Rio Pinto">
+  <div class="topbar-center">
+    <div class="topbar-title">🛡️ Panel Moderador</div>
+    <div class="topbar-subtitle">Streaming</div>
+  </div>
+  <div class="topbar-right">
+    <div class="topbar-badge" id="pending-badge">0 pendientes</div>
+    <button class="btn-delete-all" id="btn-delete-all-msg">🗑 Mensajes</button>
+    <button class="btn-delete-all" id="btn-delete-all-foto">🗑 Fotos</button>
+  </div>
+</div>
+
+<!-- MAIN: DOS COLUMNAS -->
+<div class="main">
+
+  <!-- COLUMNA MENSAJES -->
+  <div class="column">
+    <div class="panel-header">
+      <div class="panel-title">💬 Mensajes</div>
+      <div class="count-badge" id="msg-count">0</div>
+    </div>
+    <div class="items-list" id="msgs-list">
+      <div class="empty-state">
+        <div class="empty-icon">💬</div>
+        <div>Los mensajes aparecerán aquí<br>en tiempo real</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COLUMNA FOTOS -->
+  <div class="column">
+    <div class="panel-header">
+      <div class="panel-title">📷 Fotos</div>
+      <div class="count-badge" id="foto-count">0</div>
+    </div>
+    <div class="items-list" id="fotos-list">
+      <div class="empty-state">
+        <div class="empty-icon">📷</div>
+        <div>Las fotos aparecerán aquí<br>en tiempo real</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- LIGHTBOX -->
+<div id="lightbox">
+  <button id="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+<div id="toast"></div>
+
+<!-- AUDIO -->
+<script>
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  let audioCtx = null;
+  function playNotif() {
+    try {
+      if (!audioCtx) audioCtx = new AudioCtx();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.18);
+      gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+      osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.35);
+    } catch(e) {}
+  }
+  document.addEventListener('click', () => { if (!audioCtx) audioCtx = new AudioCtx(); }, { once:true });
+
+  window.openLightbox = (url) => {
+    document.getElementById('lightbox-img').src = url;
+    document.getElementById('lightbox').classList.add('open');
+  };
+  window.closeLightbox = () => {
+    document.getElementById('lightbox').classList.remove('open');
+  };
+  document.getElementById('lightbox').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('lightbox')) closeLightbox();
+  });
+</script>
+
+<!-- LOGIN LOGIC -->
+<script>
+  // 🔧 CAMBIÁ USUARIO Y CLAVE
+  const USUARIO = 'MOD';
+  const CLAVE   = '123';
+
+  function tryLogin() {
+    const u = document.getElementById('login-user').value.trim().toUpperCase();
+    const p = document.getElementById('login-pass').value.trim().toUpperCase();
+    if (u === USUARIO && p === CLAVE) {
+      document.getElementById('login-overlay').style.display = 'none';
+    } else {
+      document.getElementById('login-error').classList.add('visible');
+    }
+  }
+  document.getElementById('login-btn').addEventListener('click', tryLogin);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && document.getElementById('login-overlay').style.display !== 'none') tryLogin();
+  });
+</script>
+
+<!-- FIREBASE -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, onChildAdded, update, remove }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 🔧 REEMPLAZÁ CON TU NUEVO FIREBASE
+  const firebaseConfig = {
+    apiKey:            "AIzaSyDXf_yUP18qbsAweA3PwIGiIrK4NLVEJI0",
+    authDomain:        "riopinto-dom.firebaseapp.com",
+    databaseURL:       "https://riopinto-dom-default-rtdb.firebaseio.com",
+    projectId:         "riopinto-dom",
+    storageBucket:     "riopinto-dom.firebasestorage.app",
+    messagingSenderId: "271649446795",
+    appId:             "1:271649446795:web:b21c5a1ba17e65a7ea6d8e"
+  };
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+
+  let pendingMsg  = 0, pendingFoto = 0;
+  let totalMsg    = 0, totalFoto   = 0;
+  let initialized = false;
+
+  function updateCounts() {
+    document.getElementById('pending-badge').textContent = `${pendingMsg + pendingFoto} pendientes`;
+    document.getElementById('msg-count').textContent  = totalMsg;
+    document.getElementById('foto-count').textContent = totalFoto;
+  }
+  function timeAgo(ts) { return ts ? new Date(ts).toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' }) : ''; }
+  function escHtml(t)  { return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function showToast(msg, type='') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = 'show ' + type;
+    clearTimeout(t._to); t._to = setTimeout(() => { t.className = ''; }, 2800);
+  }
+
+  // ── MENSAJES ──────────────────────────────────────────────────────
+  const msgsList = document.getElementById('msgs-list');
+  onChildAdded(ref(db,'mensajes'), snap => {
+    const d = snap.val(); const key = snap.key;
+    const empty = msgsList.querySelector('.empty-state');
+    if (empty) empty.remove();
+    totalMsg++;
+    if (!d.aprobado) pendingMsg++;
+    updateCounts();
+    if (initialized && !d.aprobado) playNotif();
+
+    const card = document.createElement('div');
+    card.className = 'card' + (d.aprobado ? ' approved' : ' pending');
+    card.id = 'msg-' + key;
+    const isPending = !d.aprobado;
+    const actionsHtml = isPending
+      ? `<div class="card-actions" id="mactions-${key}">
+           <button class="btn-action btn-approve-sm" title="Aprobar"  onclick="aprobarMsg('${key}')">✔</button>
+           <button class="btn-action btn-reject-sm"  title="Rechazar" onclick="rechazarMsg('${key}')">✖</button>
+           <button class="btn-action btn-trash"      title="Eliminar" onclick="eliminarMsg('${key}')">🗑</button>
+         </div>`
+      : `<div class="card-actions" id="mactions-${key}">
+           <button class="btn-trash-only" title="Eliminar" onclick="eliminarMsg('${key}')">🗑</button>
+         </div>`;
+    card.innerHTML = `${actionsHtml}
+      <div class="card-body">
+        <span class="card-author">${escHtml(d.nombre.toUpperCase())}</span>
+        <span class="card-sep">–</span>
+        <span class="card-text">${escHtml(d.texto.toUpperCase())}</span>
+        <span class="card-time">${timeAgo(d.ts)}</span>
+      </div>`;
+    msgsList.prepend(card);
+  });
+
+  // ── FOTOS ──────────────────────────────────────────────────────────
+  const fotosList = document.getElementById('fotos-list');
+  onChildAdded(ref(db,'fotos'), snap => {
+    const d = snap.val(); const key = snap.key;
+    const empty = fotosList.querySelector('.empty-state');
+    if (empty) empty.remove();
+    totalFoto++;
+    if (!d.aprobado) pendingFoto++;
+    updateCounts();
+    if (initialized && !d.aprobado) playNotif();
+
+    const card = document.createElement('div');
+    card.className = 'card foto-card' + (d.aprobado ? ' approved' : ' pending');
+    card.id = 'foto-' + key;
+    const isPending = !d.aprobado;
+    const actionsHtml = isPending
+      ? `<div class="card-actions" id="factions-${key}">
+           <button class="btn-action btn-approve-sm" title="Aprobar"  onclick="aprobarFoto('${key}')">✔</button>
+           <button class="btn-action btn-reject-sm"  title="Rechazar" onclick="rechazarFoto('${key}')">✖</button>
+           <button class="btn-action btn-trash"      title="Eliminar" onclick="eliminarFoto('${key}')">🗑</button>
+         </div>`
+      : `<div class="card-actions" id="factions-${key}">
+           <button class="btn-trash-only" title="Eliminar" onclick="eliminarFoto('${key}')">🗑</button>
+         </div>`;
+    card.innerHTML = `
+      <img class="card-foto-img" src="${escHtml(d.url)}" alt="" loading="lazy" onclick="openLightbox('${escHtml(d.url)}')">
+      <div class="card-foto-body">
+        <span class="card-foto-autor">${escHtml(d.nombre.toUpperCase())}</span>
+        <span class="card-foto-time">${timeAgo(d.ts)}</span>
+      </div>
+      ${actionsHtml}`;
+    fotosList.prepend(card);
+  });
+
+  setTimeout(() => { initialized = true; }, 1500);
+
+  // ── ACCIONES MENSAJES ─────────────────────────────────────────────
+  window.aprobarMsg = async (key) => {
+    try {
+      await update(ref(db,`mensajes/${key}`), { aprobado:true });
+      const card = document.getElementById('msg-'+key);
+      if (card) { card.classList.remove('pending'); card.classList.add('approved'); }
+      const a = document.getElementById(`mactions-${key}`);
+      if (a) a.innerHTML = `<button class="btn-trash-only" onclick="eliminarMsg('${key}')">🗑</button>`;
+      pendingMsg = Math.max(0, pendingMsg-1); updateCounts();
+      showToast('✅ Mensaje en pantalla', 'green');
+    } catch { showToast('Error al aprobar','red'); }
+  };
+  window.rechazarMsg = async (key) => {
+    try {
+      await update(ref(db,`mensajes/${key}`), { rechazado:true });
+      const card = document.getElementById('msg-'+key);
+      if (card) { card.classList.remove('pending'); card.classList.add('rejected-flash'); }
+      const a = document.getElementById(`mactions-${key}`);
+      if (a) a.innerHTML = `<button class="btn-trash-only" onclick="eliminarMsg('${key}')">🗑</button>`;
+      pendingMsg = Math.max(0, pendingMsg-1); updateCounts();
+      showToast('❌ Mensaje rechazado','red');
+    } catch { showToast('Error','red'); }
+  };
+  window.eliminarMsg = async (key) => {
+    try {
+      await remove(ref(db,`mensajes/${key}`));
+      const card = document.getElementById('msg-'+key);
+      const wasPending = card?.classList.contains('pending');
+      if (card) { card.classList.add('removing'); setTimeout(()=>card.remove(),450); }
+      if (wasPending) pendingMsg = Math.max(0,pendingMsg-1);
+      totalMsg = Math.max(0,totalMsg-1); updateCounts();
+      showToast('🗑 Eliminado');
+    } catch { showToast('Error','red'); }
+  };
+
+  // ── ACCIONES FOTOS ────────────────────────────────────────────────
+  window.aprobarFoto = async (key) => {
+    try {
+      await update(ref(db,`fotos/${key}`), { aprobado:true });
+      const card = document.getElementById('foto-'+key);
+      if (card) { card.classList.remove('pending'); card.classList.add('approved'); }
+      const a = document.getElementById(`factions-${key}`);
+      if (a) a.innerHTML = `<button class="btn-trash-only" onclick="eliminarFoto('${key}')">🗑</button>`;
+      pendingFoto = Math.max(0, pendingFoto-1); updateCounts();
+      showToast('✅ Foto en pantalla', 'green');
+    } catch { showToast('Error al aprobar','red'); }
+  };
+  window.rechazarFoto = async (key) => {
+    try {
+      await update(ref(db,`fotos/${key}`), { rechazado:true });
+      const card = document.getElementById('foto-'+key);
+      if (card) { card.classList.remove('pending'); card.classList.add('rejected-flash'); }
+      const a = document.getElementById(`factions-${key}`);
+      if (a) a.innerHTML = `<button class="btn-trash-only" onclick="eliminarFoto('${key}')">🗑</button>`;
+      pendingFoto = Math.max(0, pendingFoto-1); updateCounts();
+      showToast('❌ Foto rechazada','red');
+    } catch { showToast('Error','red'); }
+  };
+  window.eliminarFoto = async (key) => {
+    try {
+      await remove(ref(db,`fotos/${key}`));
+      const card = document.getElementById('foto-'+key);
+      const wasPending = card?.classList.contains('pending');
+      if (card) { card.classList.add('removing'); setTimeout(()=>card.remove(),450); }
+      if (wasPending) pendingFoto = Math.max(0,pendingFoto-1);
+      totalFoto = Math.max(0,totalFoto-1); updateCounts();
+      showToast('🗑 Foto eliminada');
+    } catch { showToast('Error','red'); }
+  };
+
+  // ── ELIMINAR TODOS ────────────────────────────────────────────────
+  document.getElementById('btn-delete-all-msg').addEventListener('click', async () => {
+    if (!confirm('¿Eliminar TODOS los mensajes?')) return;
+    try {
+      await remove(ref(db,'mensajes'));
+      msgsList.innerHTML = `<div class="empty-state"><div class="empty-icon">💬</div><div>Los mensajes aparecerán aquí<br>en tiempo real</div></div>`;
+      pendingMsg = 0; totalMsg = 0; updateCounts();
+      showToast('🗑 Todos los mensajes eliminados','red');
+    } catch { showToast('Error','red'); }
+  });
+  document.getElementById('btn-delete-all-foto').addEventListener('click', async () => {
+    if (!confirm('¿Eliminar TODAS las fotos?')) return;
+    try {
+      await remove(ref(db,'fotos'));
+      fotosList.innerHTML = `<div class="empty-state"><div class="empty-icon">📷</div><div>Las fotos aparecerán aquí<br>en tiempo real</div></div>`;
+      pendingFoto = 0; totalFoto = 0; updateCounts();
+      showToast('🗑 Todas las fotos eliminadas','red');
+    } catch { showToast('Error','red'); }
+  });
+</script>
+</body>
+</html>

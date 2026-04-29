@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FOT1-1</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  html, body {
+    width:100%; height:100%;
+    overflow:hidden;
+    background:transparent;
+  }
+
+  #app {
+    width:100%; height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:transparent;
+  }
+
+  #foto-wrapper {
+    height:100vh;
+    aspect-ratio:1/1;
+    border-radius:70px;
+    overflow:hidden;
+    background:#f5e0e0;
+    position:relative;
+  }
+
+  .foto-slide {
+    position:absolute; inset:0;
+    opacity:0;
+    transition:opacity 2s ease;
+  }
+  .foto-slide.active { opacity:1; z-index:2; }
+  .foto-slide.prev   { opacity:0; z-index:1; }
+
+  .foto-slide img {
+    width:100%; height:100%;
+    object-fit:cover; display:block;
+  }
+
+  #waiting {
+    position:absolute; inset:0; z-index:3;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:10px;
+    background:#f5e0e0;
+  }
+  #waiting .wait-icon { font-size:2.8rem; }
+  #waiting .wait-text {
+    font-family:sans-serif;
+    font-size:0.85rem; color:#c0002a;
+    text-transform:uppercase; letter-spacing:0.1em;
+    text-align:center; line-height:1.5;
+  }
+  #waiting.hidden { display:none; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="foto-wrapper">
+    <div id="waiting">
+      <div class="wait-icon">📷</div>
+      <div class="wait-text">Esperando<br>fotos...</div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onChildAdded, onChildRemoved, query, orderByChild, equalTo }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey:            "AIzaSyDXf_yUP18qbsAweA3PwIGiIrK4NLVEJI0",
+  authDomain:        "riopinto-dom.firebaseapp.com",
+  databaseURL:       "https://riopinto-dom-default-rtdb.firebaseio.com",
+  projectId:         "riopinto-dom",
+  storageBucket:     "riopinto-dom.firebasestorage.app",
+  messagingSenderId: "271649446795",
+  appId:             "1:271649446795:web:b21c5a1ba17e65a7ea6d8e"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+
+const DISPLAY_TIME = 8000;
+const TRANSITION   = 2000;
+
+const wrapper = document.getElementById('foto-wrapper');
+const waiting = document.getElementById('waiting');
+
+let photos     = [];
+let currentIdx = -1;
+let timer      = null;
+
+function makeSlide(url) {
+  const div = document.createElement('div');
+  div.className = 'foto-slide';
+  const img = document.createElement('img');
+  img.src = url; img.alt = '';
+  div.appendChild(img);
+  wrapper.appendChild(div);
+  return div;
+}
+
+function showIdx(idx) {
+  if (photos.length === 0) {
+    waiting.classList.remove('hidden');
+    return;
+  }
+  waiting.classList.add('hidden');
+
+  const prev = wrapper.querySelector('.foto-slide.active');
+  if (prev) {
+    prev.classList.remove('active');
+    prev.classList.add('prev');
+    setTimeout(() => { prev.classList.remove('prev'); }, TRANSITION + 100);
+  }
+
+  const foto = photos[idx];
+  const slide = makeSlide(foto.url);
+  slide.getBoundingClientRect();
+  slide.classList.add('active');
+
+  setTimeout(() => {
+    wrapper.querySelectorAll('.foto-slide:not(.active)').forEach(el => el.remove());
+  }, TRANSITION + 200);
+}
+
+function advance() {
+  if (photos.length === 0) return;
+  currentIdx = (currentIdx + 1) % photos.length;
+  showIdx(currentIdx);
+  timer = setTimeout(advance, DISPLAY_TIME);
+}
+
+function startIfNeeded() {
+  if (timer === null && photos.length > 0) {
+    currentIdx = 0;
+    showIdx(0);
+    timer = setTimeout(advance, DISPLAY_TIME);
+  }
+}
+
+let initialized = false;
+const approvedRef = query(ref(db,'fotos'), orderByChild('aprobado'), equalTo(true));
+
+onChildAdded(approvedRef, snap => {
+  const d = snap.val();
+  const img = new Image(); img.src = d.url;
+  photos.push({ key: snap.key, url: d.url });
+  if (initialized && photos.length === 1) startIfNeeded();
+});
+
+onChildRemoved(approvedRef, snap => {
+  const i = photos.findIndex(f => f.key === snap.key);
+  if (i !== -1) photos.splice(i, 1);
+  if (currentIdx >= photos.length) currentIdx = 0;
+  if (photos.length === 0) {
+    clearTimeout(timer); timer = null;
+    wrapper.querySelectorAll('.foto-slide').forEach(el => el.remove());
+    waiting.classList.remove('hidden');
+  }
+});
+
+setTimeout(() => {
+  initialized = true;
+  startIfNeeded();
+}, 1200);
+</script>
+</body>
+</html>

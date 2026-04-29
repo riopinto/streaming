@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FOT16-9</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  html, body {
+    width:100%; height:100%;
+    overflow:hidden;
+    background:#000;
+  }
+
+  #app {
+    width:100vw; height:100vh;
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  /* ── FONDO DESENFOCADO ── */
+  #bg-wrapper {
+    position:absolute;
+    inset:0;
+    overflow:hidden;
+    z-index:0;
+  }
+  #bg-slide-a, #bg-slide-b {
+    position:absolute;
+    inset:0;
+    background-size:cover;
+    background-position:center center;
+    filter:blur(28px) brightness(0.45);
+    transform:scale(1.08); /* evita bordes blancos del blur */
+    transition:opacity 2s ease;
+  }
+  #bg-slide-a { opacity:1; }
+  #bg-slide-b { opacity:0; }
+
+  #bg-waiting {
+    position:absolute; inset:0;
+    background:#111;
+  }
+  #bg-waiting.hidden { display:none; }
+
+  /* ── RECUADRO PRINCIPAL ── */
+  #foto-wrapper {
+    position:relative;
+    z-index:1;
+    height:calc(100vh - 200px);
+    aspect-ratio:1/1;
+    border-radius:70px;
+    overflow:hidden;
+    background:#f5e0e0;
+    margin-top:0;
+  }
+
+  .foto-slide {
+    position:absolute; inset:0;
+    opacity:0;
+    transition:opacity 2s ease;
+  }
+  .foto-slide.active { opacity:1; z-index:2; }
+  .foto-slide.prev   { opacity:0; z-index:1; }
+
+  .foto-slide img {
+    width:100%; height:100%;
+    object-fit:cover; display:block;
+  }
+
+  #waiting {
+    position:absolute; inset:0; z-index:3;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:10px;
+    background:#f5e0e0;
+  }
+  #waiting .wait-icon { font-size:2.8rem; }
+  #waiting .wait-text {
+    font-family:sans-serif;
+    font-size:0.85rem; color:#c0002a;
+    text-transform:uppercase; letter-spacing:0.1em;
+    text-align:center; line-height:1.5;
+  }
+  #waiting.hidden { display:none; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- FONDO -->
+  <div id="bg-wrapper">
+    <div id="bg-waiting"></div>
+    <div id="bg-slide-a"></div>
+    <div id="bg-slide-b"></div>
+  </div>
+
+  <!-- RECUADRO PRINCIPAL -->
+  <div id="foto-wrapper">
+    <div id="waiting">
+      <div class="wait-icon">📷</div>
+      <div class="wait-text">Esperando<br>fotos...</div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onChildAdded, onChildRemoved, query, orderByChild, equalTo }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey:            "AIzaSyDXf_yUP18qbsAweA3PwIGiIrK4NLVEJI0",
+  authDomain:        "riopinto-dom.firebaseapp.com",
+  databaseURL:       "https://riopinto-dom-default-rtdb.firebaseio.com",
+  projectId:         "riopinto-dom",
+  storageBucket:     "riopinto-dom.firebasestorage.app",
+  messagingSenderId: "271649446795",
+  appId:             "1:271649446795:web:b21c5a1ba17e65a7ea6d8e"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+
+const DISPLAY_TIME = 8000;
+const TRANSITION   = 2000;
+
+const wrapper = document.getElementById('foto-wrapper');
+const waiting = document.getElementById('waiting');
+const bgWaiting = document.getElementById('bg-waiting');
+const bgA = document.getElementById('bg-slide-a');
+const bgB = document.getElementById('bg-slide-b');
+
+let photos     = [];
+let currentIdx = -1;
+let timer      = null;
+let bgActive   = 'a'; // which bg layer is on top
+
+function setBg(url) {
+  if (bgActive === 'a') {
+    bgB.style.backgroundImage = `url('${url}')`;
+    bgB.style.opacity = '1';
+    bgA.style.opacity = '0';
+    bgActive = 'b';
+  } else {
+    bgA.style.backgroundImage = `url('${url}')`;
+    bgA.style.opacity = '1';
+    bgB.style.opacity = '0';
+    bgActive = 'a';
+  }
+  bgWaiting.classList.add('hidden');
+}
+
+function makeSlide(url) {
+  const div = document.createElement('div');
+  div.className = 'foto-slide';
+  const img = document.createElement('img');
+  img.src = url; img.alt = '';
+  div.appendChild(img);
+  wrapper.appendChild(div);
+  return div;
+}
+
+function showIdx(idx) {
+  if (photos.length === 0) {
+    waiting.classList.remove('hidden');
+    return;
+  }
+  waiting.classList.add('hidden');
+
+  const foto = photos[idx];
+  setBg(foto.url);
+
+  const prev = wrapper.querySelector('.foto-slide.active');
+  if (prev) {
+    prev.classList.remove('active');
+    prev.classList.add('prev');
+    setTimeout(() => { prev.classList.remove('prev'); }, TRANSITION + 100);
+  }
+
+  const slide = makeSlide(foto.url);
+  slide.getBoundingClientRect();
+  slide.classList.add('active');
+
+  setTimeout(() => {
+    wrapper.querySelectorAll('.foto-slide:not(.active)').forEach(el => el.remove());
+  }, TRANSITION + 200);
+}
+
+function advance() {
+  if (photos.length === 0) return;
+  currentIdx = (currentIdx + 1) % photos.length;
+  showIdx(currentIdx);
+  timer = setTimeout(advance, DISPLAY_TIME);
+}
+
+function startIfNeeded() {
+  if (timer === null && photos.length > 0) {
+    currentIdx = 0;
+    showIdx(0);
+    timer = setTimeout(advance, DISPLAY_TIME);
+  }
+}
+
+let initialized = false;
+const approvedRef = query(ref(db,'fotos'), orderByChild('aprobado'), equalTo(true));
+
+onChildAdded(approvedRef, snap => {
+  const d = snap.val();
+  const img = new Image(); img.src = d.url;
+  photos.push({ key: snap.key, url: d.url });
+  if (initialized && photos.length === 1) startIfNeeded();
+});
+
+onChildRemoved(approvedRef, snap => {
+  const i = photos.findIndex(f => f.key === snap.key);
+  if (i !== -1) photos.splice(i, 1);
+  if (currentIdx >= photos.length) currentIdx = 0;
+  if (photos.length === 0) {
+    clearTimeout(timer); timer = null;
+    wrapper.querySelectorAll('.foto-slide').forEach(el => el.remove());
+    waiting.classList.remove('hidden');
+    bgWaiting.classList.remove('hidden');
+    bgA.style.opacity = '0';
+    bgB.style.opacity = '0';
+  }
+});
+
+setTimeout(() => {
+  initialized = true;
+  startIfNeeded();
+}, 1200);
+</script>
+</body>
+</html>
